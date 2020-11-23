@@ -1,11 +1,12 @@
 {
   "name": "retcon",
-  "version": "0.0.0",
+  "version": "0.0.0-beta.0",
   "description": "composable sql fragments",
   "main": "dist/query.js",
   "types": "dist/query.d.ts",
   "scripts": {
-    "test": "jest --collect-coverage"
+    "test": "jest --collect-coverage",
+    "build": "tsc"
   },
   "author": "antimatter15",
   "license": "MIT",
