@@ -218,23 +218,19 @@ export function mergeData(tape: Tape, oldData: Data, newData: Data): void {
     if (!tape.c) return
     for (const key of Object.keys(tape.c)) {
         const ast = tape.c[key]
-        if (!(ast.a in newData)) {
+        if (!newData || !newData.hasOwnProperty(ast.a)) {
             // do nothing
         } else if (!oldData[ast.a] || ast.t === 0) {
             oldData[ast.a] = newData[ast.a]
         } else if (ast.t === 1) {
-            if (newData[ast.a] !== null) {
+            if (newData[ast.a] !== null && newData[ast.a] !== undefined) {
                 mergeData(ast, oldData[ast.a] as Data, newData[ast.a] as Data)
-            } else {
-                oldData[ast.a] = null
             }
         } else if (ast.t === 2) {
-            if (newData[ast.a] !== null) {
+            if (Array.isArray(newData[ast.a])) {
                 const oldList = oldData[ast.a] as Data[]
                 const newList = newData[ast.a] as Data[]
                 for (let i = 0; i < oldList.length; i += 1) mergeData(ast, oldList[i], newList[i])
-            } else {
-                oldData[ast.a] = null
             }
         }
     }
