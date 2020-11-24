@@ -53,62 +53,16 @@ export type Data = {
     [key: string]: SQLValue | Data | Data[]
 }
 
-// This is a helper function for working with flat sequences of values
-// interleaved with strings.
-export function weave(strings: ReadonlyArray<string>, ...values: Weave[]): Weave {
-    if (strings.length - 1 !== values.length) throw new Error('Invalid Weave')
-    const outStr = [strings[0]]
-    const outVal = []
-    for (let i = 0; i < values.length; i += 1) {
-        const [s, ...v] = values[i]
-        outStr[outStr.length - 1] += s[0]
-        for (let j = 0; j < v.length; j += 1) {
-            outStr.push(s[j + 1])
-            outVal.push(v[j])
-        }
-        outStr[outStr.length - 1] += strings[i + 1]
-    }
-    return [outStr, ...outVal]
-}
-
 // This tagged template allows people to create SQL query fragments that
 // can be reused or generated elsewhere.
-export function SQL<T>(strings: ReadonlyArray<string>, ...values: SQLEmbed[]): SQLFragment<T> {
-    if (!Array.isArray(strings) || strings.length !== values.length + 1)
+export function SQL<T>(strings: TemplateStringsArray, ...values: SQLEmbed[]): SQLFragment<T> {
+    if (!Array.isArray(strings) || strings.length !== values.length + 1 || !strings.raw)
         throw new Error('SQL method must be used as a tagged template')
-
-    return {
-        __sqlFragment: weave(
-            strings,
-            ...values.map(
-                (value: SQLEmbed): Weave => {
-                    if (value && (value as SQLFragment<unknown>).__sqlFragment)
-                        return (value as SQLFragment<unknown>).__sqlFragment
-                    return [['', ''], value] as Weave
-                }
-            )
-        ),
-    }
+    return { __sqlFragment: flattenSQLFragments(strings, ...values) }
 }
 
 export function dangerouslyUseRawSQL<T>(sql: { __sql: string }): SQLFragment<T> {
     return { __sqlFragment: [[sql.__sql]] }
-}
-
-// This function flattens out the arguments of the tagged template
-// and checks it for basic validity. It does not handle escaping values— that
-// happens in the code generator.
-
-function encodeQueryArgs(args: [SQLFragment<unknown>] | WeaveEmbed): string {
-    if (args.length === 1 && args[0] && (args[0] as SQLFragment<unknown>).__sqlFragment)
-        return JSON.stringify((args[0] as SQLFragment<unknown>).__sqlFragment)
-
-    if (args.length === 0 || !Array.isArray(args[0]) || args[0].length !== args.length)
-        throw new Error(
-            'Query methods must used as tagged templates or passed a template SQL object'
-        )
-    const flat: Weave = SQL(args[0], ...(args.slice(1) as SQLValue[])).__sqlFragment
-    return JSON.stringify(flat)
 }
 
 // This function creates a Query interface based on a tape
@@ -251,6 +205,52 @@ export function filterData(tape: Tape, data: Data): void {
             }
         }
     }
+}
+
+function flattenSQLFragments(strings: ReadonlyArray<string>, ...values: SQLEmbed[]): Weave {
+    return weave(
+        strings,
+        ...values.map(
+            (value: SQLEmbed): Weave => {
+                if (value && (value as SQLFragment<unknown>).__sqlFragment)
+                    return (value as SQLFragment<unknown>).__sqlFragment
+                return [['', ''], value] as Weave
+            }
+        )
+    )
+}
+
+// This function flattens out the arguments of the tagged template
+// and checks it for basic validity. It does not handle escaping values— that
+// happens in the code generator.
+
+function encodeQueryArgs(args: [SQLFragment<unknown>] | WeaveEmbed): string {
+    if (args.length === 1 && args[0] && (args[0] as SQLFragment<unknown>).__sqlFragment)
+        return JSON.stringify((args[0] as SQLFragment<unknown>).__sqlFragment)
+
+    if (args.length === 0 || !Array.isArray(args[0]) || args[0].length !== args.length)
+        throw new Error(
+            'Query methods must used as tagged templates or passed a template SQL object'
+        )
+    return JSON.stringify(flattenSQLFragments(args[0], ...(args.slice(1) as SQLValue[])))
+}
+
+// This is a helper function for working with flat sequences of values
+// interleaved with strings.
+export function weave(strings: ReadonlyArray<string>, ...values: Weave[]): Weave {
+    if (strings.length - 1 !== values.length) throw new Error('Invalid Weave')
+    const outStr = [strings[0]]
+    const outVal = []
+    for (let i = 0; i < values.length; i += 1) {
+        const [s, ...v] = values[i]
+        outStr[outStr.length - 1] += s[0]
+        for (let j = 0; j < v.length; j += 1) {
+            outStr.push(s[j + 1])
+            outVal.push(v[j])
+        }
+        outStr[outStr.length - 1] += strings[i + 1]
+    }
+    return [outStr, ...outVal]
 }
 
 const JSONPreview = (val: SQLValue): string => `{${JSON.stringify(val)}}`

@@ -1,10 +1,20 @@
 import { createQuery, dangerouslyUseRawSQL, SQL } from '../lib/query'
 
+function fakeTemplate(x) {
+    x.raw = [1, 2, 3]
+    return x
+}
+
 test('fragments', () => {
     expect(() => SQL('hello' as any)).toThrow()
-    expect(() => SQL(['hello'])).not.toThrow()
-    expect(() => SQL(['hello', 'world'])).toThrow()
-    expect(() => SQL(['hello', 'world'], 'merp')).not.toThrow()
+    expect(() => SQL(['hello'] as any)).toThrow()
+    expect(() => SQL(['hello', 'world'] as any)).toThrow()
+    expect(() => SQL(['hello', 'world'] as any, 'merp')).toThrow()
+
+    expect(() => SQL(fakeTemplate(['hello']))).not.toThrow()
+    expect(() => SQL(fakeTemplate(['hello', 'world']), 'merp')).not.toThrow()
+    expect(() => SQL(fakeTemplate(['hello', 'world']))).toThrow()
+    expect(() => SQL(fakeTemplate(['hello']), 'world')).toThrow()
 
     expect(SQL`user.name`).toMatchInlineSnapshot(`
         Object {
@@ -83,4 +93,11 @@ test('fragment as only argument', () => {
 test('invalid tape', () => {
     const query = createQuery(null as any)
     expect(() => query`CURRENT_TIMESTAMP`).toThrow()
+})
+
+test('multiple fragments', () => {
+    const query = createQuery()
+    const UserId = SQL`user.id`
+
+    expect(() => (query as any)(UserId, UserId)).toThrow()
 })
