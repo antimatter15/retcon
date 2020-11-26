@@ -1,4 +1,4 @@
-import { createQuery, mergeData } from '../lib/query'
+import { createQuery } from '../lib/query'
 
 test('undefined 1', () => {
     const tape = { a: 'data', t: 1, count: 0 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { escapeSQLite, sqliteCodegen } from '../lib/codegen'
 import { createQuery, printWeave } from '../lib/query'
 
