@@ -15,8 +15,8 @@ export type SQLFragment<T> = {
 
 export type Query = {
     // field accessor
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (strings: TemplateStringsArray, ...values: SQLEmbed[]): any
-    <T>(query: SQLFragment<T>): T
     <T>(query: SQLFragment<T>): T | null
     <T>(strings: TemplateStringsArray, ...values: SQLEmbed[]): T | null
 
@@ -28,6 +28,8 @@ export type Query = {
     many(strings: TemplateStringsArray, ...values: SQLEmbed[]): Query[]
     many<T>(query: SQLFragment<T>): Query[]
 }
+
+type QueryMethodArgs = [SQLFragment<unknown>] | WeaveEmbed
 
 type RootQuery = Query & {
     tape: Tape
@@ -92,12 +94,18 @@ export function createQuery(
     uncachedCallback?: (err: Error, type: number) => void
 ): RootQuery {
     const make = (tape: Tape, data: Data, stack: string[] = []): Query => {
-        const q = (...args: any[]) => helper(tape, data, args, 0, stack)
-        q.one = (...args: any[]) => helper(tape, data, args, 1, stack)
-        q.many = (...args: any[]) => helper(tape, data, args, 2, stack)
+        const q = (...args: QueryMethodArgs) => helper(tape, data, args, 0, stack)
+        q.one = (...args: QueryMethodArgs) => helper(tape, data, args, 1, stack)
+        q.many = (...args: QueryMethodArgs) => helper(tape, data, args, 2, stack)
         return q as Query
     }
-    const helper = (parent: Tape, data: Data, args: any, type: number, stack: string[]) => {
+    const helper = (
+        parent: Tape,
+        data: Data,
+        args: QueryMethodArgs,
+        type: number,
+        stack: string[]
+    ) => {
         const query = encodeQueryArgs(args)
         const nextStack = [query, ...stack]
         if (!parent) throw new Error(ERROR_INVALID_TAPE)
@@ -172,7 +180,7 @@ export function mergeData(tape: Tape, oldData: Data, newData: Data): void {
     if (!tape.c) return
     for (const key of Object.keys(tape.c)) {
         const ast = tape.c[key]
-        if (!newData || !newData.hasOwnProperty(ast.a)) {
+        if (!newData || !Object.prototype.hasOwnProperty.call(newData, ast.a)) {
             // do nothing
         } else if (!oldData[ast.a] || ast.t === 0) {
             oldData[ast.a] = newData[ast.a]
@@ -224,7 +232,7 @@ function flattenSQLFragments(strings: ReadonlyArray<string>, ...values: SQLEmbed
 // and checks it for basic validity. It does not handle escaping values— that
 // happens in the code generator.
 
-function encodeQueryArgs(args: [SQLFragment<unknown>] | WeaveEmbed): string {
+function encodeQueryArgs(args: QueryMethodArgs): string {
     if (args.length === 1 && args[0] && (args[0] as SQLFragment<unknown>).__sqlFragment)
         return JSON.stringify((args[0] as SQLFragment<unknown>).__sqlFragment)
 
