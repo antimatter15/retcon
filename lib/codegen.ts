@@ -1,11 +1,11 @@
-import { Weave, weave, isWeaveEmpty, indentWeave, Tape, SQLValue } from './query'
+import { Weave, weave, isWeaveEmpty, indentWeave, Tape, SQLValue, flattenSQLFragments, decodeQuery } from './query'
 
 // Since SQLite 3.9 (2015-10-14)
 export function sqliteCodegen(root: Tape, pretty = true): Weave {
     const codegen = (tape: Tape, query: Weave): Weave => {
         if (tape.t === 0 && tape.miss) return weave`SELECT ${query}`
         const innerList = Object.entries(tape.c || {})
-            .map(([q, child]) => [child, codegen(child, JSON.parse(q))] as [Tape, Weave])
+            .map(([q, child]) => [child, codegen(child, decodeQuery(child, q))] as [Tape, Weave])
             .filter(([, sql]) => !isWeaveEmpty(sql))
         if (innerList.length === 0) return [['']]
         const inner = innerList
@@ -27,7 +27,7 @@ export function postgresCodegen(root: Tape, pretty = true): Weave {
     const codegen = (tape: Tape, query: Weave): Weave => {
         if (tape.t === 0 && tape.miss) return weave`SELECT ${query}`
         const innerList = Object.entries(tape.c || {})
-            .map(([q, child]) => [child, codegen(child, JSON.parse(q))] as [Tape, Weave])
+            .map(([q, child]) => [child, codegen(child, decodeQuery(child, q))] as [Tape, Weave])
             .filter(([, sql]) => !isWeaveEmpty(sql))
         if (innerList.length === 0) return [['']]
         const inner = innerList

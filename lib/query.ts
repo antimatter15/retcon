@@ -1,8 +1,10 @@
 export type SQLValue = null | string | number | boolean
 export type Weave = [string[], ...SQLValue[]]
 
-type SQLEmbed = SQLValue | SQLFragment<unknown>
+type SQLEmbed = SQLValue | SQLFragment<unknown> | Query | Ref
 type WeaveEmbed = [string[], ...SQLEmbed[]]
+
+export const Ref = { __sqlRole: 'SQLRef' }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type SQLFragment<T> = {
@@ -97,6 +99,7 @@ export function createQuery(
         const q = (...args: QueryMethodArgs) => helper(tape, data, args, 0, stack)
         q.one = (...args: QueryMethodArgs) => helper(tape, data, args, 1, stack)
         q.many = (...args: QueryMethodArgs) => helper(tape, data, args, 2, stack)
+        q.__sqlFragment = [['ref' + tape.a]]
         return q as Query
     }
     const helper = (
@@ -213,6 +216,14 @@ export function filterData(tape: Tape, data: Data): void {
             }
         }
     }
+}
+
+export function decodeQuery(tape: Tape, q: string) {
+    const query = JSON.parse(q)
+    return flattenSQLFragments(
+        query[0],
+        ...query.slice(1).map(k => (k.__sqlRole ? { __sqlFragment: [['ref' + tape.a]] } : k))
+    )
 }
 
 function flattenSQLFragments(strings: ReadonlyArray<string>, ...values: SQLEmbed[]): Weave {
